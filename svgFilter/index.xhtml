@@ -1,0 +1,438 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:svg="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <head>
+<link rel="icon" type="image/gif" href="favicon.gif" />
+<title>Mario Kart Demo</title>
+    <style>
+    #displacementContainer {
+        display:block;
+        position:absolute;
+        left:0px; top:228px; width:1024px; height:768px;
+        filter:url(#perspDisp);
+    }
+
+    #mapSurface {
+        display:block;
+        position:absolute;
+        left:0px; top:0px; width:256px; height:256px;
+    }
+    </style>
+    <script>
+//<![CDATA[
+
+    var global={
+      timer: null,
+      sprite: null,
+      mapSurface: null,
+      mapImage: null,
+      backgroundSurface:null,
+      backgroundImage:null,
+      offsetX:-784,
+      offsetY:-380,
+      rotation:0,
+      prevOffsetX:-1,
+      prevOffsetY:-1,
+      prevRotation:-1,
+      pressedUp:0,
+      pressedDown:0,
+      pressedLeft:0,
+      pressedRight:0,
+      
+      canvasLim: null,
+      canvasLim2: null,
+      canvasMap: null,
+
+      imageLap: null,
+      imageLim: null,
+      imageRoad:null,
+      imageBorder:null,
+      accelRotation:0,
+      accel:0,
+      
+      lapDisplay: null,
+      timerDisplay: null,
+      lap: { unlock: false, lap: 0 }
+      };
+
+  function draw(x,y,r,backgroundSurface,mapSurface,mapImage){
+    transform(x,y,r,mapSurface, mapImage);
+//    transform(x,y,r,global.canvasLim, global.imageLim);
+//    transform(x,y,r,global.canvasMap, global.mapImage);
+
+//    transform2(x,y,r,global.canvasMap2, global.mapImage);
+  }
+	    
+var startAngle = 0;           // Starting point on circle
+var endAngle   = 2*Math.PI;   // End point on circle
+
+var xpos = 128;
+var ypos = 224;
+
+var spriteSize = 8;
+
+var lap = 0;
+
+function transform(x,y,r,canvas, mapImage){
+
+    canvas.save();
+    canvas.clearRect(0,0,256,256);
+    canvas.translate(xpos,ypos);
+    canvas.rotate(r);
+    canvas.translate(-xpos,-ypos);
+    canvas.translate(x,y);
+    canvas.drawImage(mapImage,0,0);
+
+    canvas.restore();
+
+    /* */
+    var radius     = spriteSize/2;                    // Arc radius
+
+    canvas.beginPath();
+    canvas.fillStyle = "white";
+    canvas.arc(xpos,ypos,radius,startAngle,endAngle, false);
+    canvas.fill();
+  
+    canvas.beginPath();
+    radius     = radius-2;                    // Arc radius
+    canvas.fillStyle = "red";
+    canvas.arc(xpos,ypos,radius,startAngle,endAngle, false);
+    canvas.fill();
+    /* */
+  }
+
+	    
+function transform2(x,y,r,canvas, mapImage){
+    canvas.drawImage(mapImage,0,0);
+
+    canvas.save();
+    canvas.translate(-x,-y);
+
+    var radius     = spriteSize/2;                    // Arc radius
+  
+    canvas.beginPath();
+    canvas.fillStyle = "white";
+    canvas.arc(xpos, ypos, radius, startAngle, endAngle, false);
+    canvas.fill();
+
+    canvas.restore();    
+  }
+
+var terrain={
+ lake   : 1,
+ border : 2,
+ road   : 4,
+ none   : 0
+}
+
+function collision(x,y, canvas, mapImage){
+  canvas.fillStyle = "black";
+  canvas.fillRect(0,0,8,8);
+  var xp = - x + xpos;
+  var yp = - y + ypos;
+  if (xp >= 0 && xp < 1024 &&
+      yp >= 0 && yp < 1024 )
+    canvas.drawImage(mapImage, 
+		     xp, yp, spriteSize, spriteSize, 
+		     0, 0, spriteSize, spriteSize );
+
+  var data = canvas.getImageData(0, 0, spriteSize, spriteSize );
+  
+  for (j=0; j < data.width; j++) {
+    for (i=0; i < data.height; i++) {
+         var index=(i*4)*data.width+(j*4);
+         var red=data.data[index];	  
+	 if (red == 255){      return terrain.border;	 }
+
+	 var green=data.data[index+1];
+	 if (green == 255){    return terrain.road;	 }
+
+         var blue=data.data[index+2];
+	 if (blue == 255){     return terrain.lake;	 }
+	 
+      }
+   }
+
+   return terrain.none;
+}
+
+
+
+function lapUpdate(x,y, canvas, mapImage, lapupdate){
+  canvas.fillStyle = "black";
+  canvas.fillRect(0,0,8,8);
+  var xp = - x + xpos;
+  var yp = - y + ypos;
+  if (xp >= 0 && xp < 1024 &&
+      yp >= 0 && yp < 1024 )
+    canvas.drawImage(mapImage, 
+		     xp, yp, spriteSize, spriteSize, 
+		     0, 0, spriteSize, spriteSize );
+
+  var data = canvas.getImageData(0, 0, spriteSize, spriteSize );
+  
+  for (j=0; j < data.width; j++) {
+    for (i=0; i < data.height; i++) {
+         var index=(i*4)*data.width+(j*4);
+         var red=data.data[index];	  
+	 if (red == 255){
+            if (lapupdate.unlock){
+               lapupdate.unlock = false;
+               lapupdate.lap += 1;
+            }
+         }
+
+	 var green=data.data[index+1];
+	 if (green == 255){    lapupdate.unlock = true;	 }
+
+//         var blue=data.data[index+2];
+//	 if (blue == 255){     lapupdate.pos = -1;	 }
+	 
+      }
+   }
+
+   return lapupdate;
+}
+
+
+
+function speedCounter(x,y,r,s,a,t){
+  var d = document.getElementById("speedCounter");
+  d.innerHTML = "(" + x.toFixed(3) + "," + y.toFixed(3) + "," + r.toFixed(3) 
+    + ") Speed: (" + s.toFixed(3) + "," + a.toFixed(3) + ")" + t;
+}
+  
+  function debugCollision(text){
+    var d = document.getElementById("debug2");
+    d.innerHTML = "<p>" + text + "</p>";
+  }
+  
+  function lapCounter(counter){
+    global.lapDisplay.innerHTML = counter + "/" + 3;
+    global.timerDisplay.innerHTML = (global.timer/10).toFixed(1);
+  }
+  
+  function processInput(global){
+    if(global.pressedLeft){
+      global.accelRotation+= (Math.abs(global.accel) > .2) ? 1/( 30 + 4*global.accel): 0;
+    }
+    if(global.pressedRight){
+      global.accelRotation-= (Math.abs(global.accel) > .2) ? 1/( 30 + 4*global.accel): 0;
+    }
+    global.accelRotation = Math.max( -1, Math.min(1, global.accelRotation));
+    
+    if(global.pressedUp){
+      global.accel += 2;
+    }
+    if(global.pressedDown){
+      global.accel -= 0.5;
+    }
+    
+    global.accel = Math.max( -2, Math.min(10, global.accel));
+    
+    var posX = global.offsetX + Math.sin(global.rotation)*global.accel;
+    var posY = global.offsetY + Math.cos(global.rotation)*global.accel;
+    var col = collision(posX, posY, global.canvasLim2, global.imageLim);
+    global.lap = lapUpdate(posX, posY, global.canvasLap, global.imageLap, global.lap);
+
+    lapCounter( global.lap.lap );
+
+    if (terrain.lake == col){
+      debugCollision("Lake");
+      global.accel = 0;
+    }
+    if (terrain.road == col) debugCollision("Road");
+    if (terrain.border == col){
+      debugCollision("Border" + col);
+      global.accel = -1.2*global.accel;
+    };
+
+    if (terrain.none == col || terrain.road == col){
+      global.offsetX = posX;
+      global.offsetY = posY;
+    };
+
+    global.rotation+=global.accelRotation;
+    global.rotation=(global.rotation+(Math.PI*2))%(Math.PI*2);
+    global.backgroundImage.backgroundPosition = (180*global.rotation/Math.PI) + "px " + "0px";
+
+global.backgroundImage.style.backgroundPosition = (global.rotation/Math.PI*1024).toFixed(0) + "px 0px" 
+
+    global.accel *= (col != terrain.road)?0.4:0.97;
+    global.accelRotation *= 0.7;
+
+    if (global.accelRotation > 0.03){
+      global.sprite.src = "kingkong-left2.png";
+    } else if (global.accelRotation > 0.01){
+      global.sprite.src = "kingkong-left1.png";
+    } else if (global.accelRotation < -0.03){
+      global.sprite.src = "kingkong-right2.png";
+    } else if (global.accelRotation < -0.01){
+      global.sprite.src = "kingkong-right1.png";
+    } else {
+      global.sprite.src = "kingkong-back.png";
+    }
+
+
+  }
+
+  window.onkeydown=function(evt){
+    switch(evt.keyCode){
+    case KeyEvent.DOM_VK_LEFT: global.pressedLeft=1; break;
+    case KeyEvent.DOM_VK_RIGHT: global.pressedRight=1; break;
+    case KeyEvent.DOM_VK_UP: global.pressedUp=1; break;
+    case KeyEvent.DOM_VK_DOWN: global.pressedDown=1; break;
+    }
+    evt.preventDefault();
+  }
+    
+  window.onkeyup=function(evt){
+    switch(evt.keyCode){
+    case KeyEvent.DOM_VK_LEFT: global.pressedLeft=0; break;
+    case KeyEvent.DOM_VK_RIGHT: global.pressedRight=0; break;
+    case KeyEvent.DOM_VK_UP: global.pressedUp=0; break;
+    case KeyEvent.DOM_VK_DOWN: global.pressedDown=0; break;
+    }
+    
+    evt.preventDefault();
+  }
+
+  function loop(){
+    processInput(global);
+    if( Math.abs(global.prevOffsetX - global.offsetX) > .1
+	|| Math.abs(global.prevOffsetY - global.offsetY) > .1
+	|| Math.abs(global.prevRotation - global.rotation) > .0002){
+
+      draw(global.offsetX,global.offsetY,global.rotation,
+	   global.backgroundSurface,global.mapSurface,
+	   global.mapImage);
+      speedCounter(global.offsetX, global.offsetY, global.rotation, global.accel, global.accelRotation, "up");
+        
+    } else {
+      speedCounter(global.offsetX, global.offsetY, global.rotation, global.accel, global.accelRotation, "nd");
+    
+    };
+    global.prevOffsetX=global.offsetX;
+    global.prevOffsetY=global.offsetY;
+    global.prevRotation=global.rotation;
+
+    window.setTimeout(loop,25);
+
+  }
+
+  var d0;
+  timer = function(){
+     var d = new Date();
+     d.getTime();
+
+     global.timer = (d.getTime()-d0)/100;
+
+     window.setTimeout(timer, 100);
+  }
+
+  window.onload=function(){
+    global.mapSurface=document.getElementById("mapSurface").getContext("2d");
+    global.mapImage=document.getElementById("mapImage");
+    //    global.backgroundSurface=document.getElementById("backgroundSurface").getContext("2d");
+    global.backgroundImage=document.getElementById("backgroundImage");
+    //    global.backgroundSurface.fillStyle=global.backgroundSurface.createPattern(global.backgroundImage,"repeat-x");
+    
+    global.canvasLim   = document.getElementById("canvasLim").getContext("2d");
+    global.canvasMap    = document.getElementById("canvasMap").getContext("2d");
+    
+//    global.canvasMap2   = document.getElementById("canvasMap2").getContext("2d");
+    global.canvasLim2   = document.getElementById("canvasLim2").getContext("2d");
+    global.canvasLap    = document.getElementById("canvasLap").getContext("2d");
+
+    global.imageLap=document.getElementById("imageLap");
+    global.imageLim=document.getElementById("imageLim");
+    global.sprite = document.getElementById("sprite");
+
+    global.lapDisplay = document.getElementById("lap");
+    global.timerDisplay = document.getElementById("timer");
+
+    global.timer = 0;
+
+    var d = new Date();
+    d0 = d.getTime();
+
+    timer();
+    loop();
+
+    /*
+    $("#d3").drawImage($("#m"),0,0);
+    //    $("#d3").toDisplacement();
+
+    filter = $('#perspDisp');
+    displFilter = filter.children[2];
+    displFilter.in1 = $("#d3");
+
+    */
+  }
+    
+  //]]>
+
+    </script>
+	</head>
+	<body bgcolor="gray">
+		
+<div id="backgroundImage" style="background: url(bg.png) repeat; position: absolute; top: 0px; left: 0px;  width: 512px; height: 460px; background-position: 100 0"></div>
+
+		<!-- canvas width="512" height="460" id="backgroundSurface" 
+		             style="position:absolute;top:0px; left:0px;" / -->
+
+		<div id="displacementContainer"><canvas id="mapSurface" width="256" height="256"  /></div>
+		<img src="kingkong-back.png" id="sprite" style="position:absolute;top:300px; left:205px;" width="100px" />
+		<img src="fmap.png"     id="mapImage" style="display:none;" />
+		<img src="fmap-lim.png" id="imageLim" style="display:none;" />
+		<img src="fmap-lap.png" id="imageLap" style="display:none;" />
+
+	<canvas id="canvasLim"  width="256" height="256" style="position:absolute;top:0px; left:550px;" />
+	<canvas id="canvasMap"  width="256" height="256" style="position:absolute;top:0px; left:830px;" />
+	<canvas id="canvasLim2" width="8"   height="8"   style="position:absolute;top:0px; left:550px;" />
+	<canvas id="canvasLap"  width="8"   height="8"   style="position:absolute;top:16px; left:550px;" />
+
+	<!-- canvas id="canvasMap2"    width="1024" height="1024"
+	style="position:absolute;top:520px; left:0px;" / -->
+
+	<div id="speedCounter" 
+		 style="left: 200px;font: verdana; position:absolute;top:30px; "
+          >Hello world</div>
+	<div id="debug2" 
+		 style="left: 512px; margin-left:550px;font: verdana; position:absolute;top:20px; left:30px;"
+          >Hello world</div>
+	
+    <div id="lap" 
+     style="font: sans serif 4em; position:absolute;top:30px; left:30px;">
+    </div>
+    <div id="timer" 
+     style="font: sans serif 4em; position:absolute;top:18px; left:30px;">
+    </div>
+    
+    <audio src="sfx/n64_Mario_Kart_64_Moo_Moo_Farm.ogg" controls="true"
+       style="position:absolute;top:520px; left:0px;"> autoplay="start playing now" 
+       Audio not supported
+    </audio>
+
+
+
+<svg:svg height="0">
+<svg:filter color-interpolation-filters="sRGB" id="perspDisp" 
+	    filterUnits="userSpaceOnUse" x="0%" y="0%" width="768" height="384" filterRes="768 384">
+	<svg:feOffset dx="0" dy="0" width="256" height="256" result="source" />
+	<svg:feTile width="100%" height="100%" in="source" result="source" />
+	<svg:feImage x="128" y="128" width="512" height="256" 
+		xlink:href="fdisplacement512.png" result ="displacement"/>
+	<!-- svg:feOffset x="128" y="128" width="512" height="256" 
+	       in="" dx="128" dy="128" result="displacement" / -->
+	<svg:feDisplacementMap   x="128" y="128" width="512" height="256" 
+		color-interpolation-filters="sRGB"  in="source"  in2="displacement" 
+		scale="255"  xChannelSelector="R" yChannelSelector="G"  result ="out" />
+	<svg:feComposite in2="displacement"  operator="in" />
+	<svg:feOffset x="0" y="0" width="512" height="256"  dx="-128" dy="-128" />
+</svg:filter>
+</svg:svg>
+		
+
+</body>
+</html>
+
+

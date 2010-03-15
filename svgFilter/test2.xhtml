@@ -1,0 +1,89 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:svg="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <head>
+<link rel="icon" type="image/gif" href="favicon.gif" />
+<title>Mario Kart Demo</title>
+
+
+
+    <script>
+//<![CDATA[
+
+
+var $=function(sel){
+				var t=document.querySelectorAll(sel);
+				var r=[];
+				for(var i=0;t && i<t.length;i++)
+					r.push(t[i]);
+				
+				if(r && r.length)
+					for(var i=0;i<r.length;i++)
+						if(r[i].getContext)
+							r[i]=r[i].getContext("2d");
+				
+				return (r.length && r.length==1?r[0]:r);
+			};
+			CanvasRenderingContext2D.prototype.toDisplacement=function(){
+				var w=this.canvas.width;
+				var h=this.canvas.height;
+
+				var markDisplacement=function(map){
+					var po=0;var pi=0;var sx=0;var sy=0;var sa=0;var x=0;var y=0;
+					for(y=0;y<h;y++){
+						for(x=0;x<w;x++){
+							po=(y*w+x)*4;
+							sx=map[po+0];sy=map[po+1];sa=map[po+3];
+							if(sa>254){
+								map[po+0]=(sx-x+65536)%256;
+								map[po+1]=(sy-y+65536)%256;
+								map[po+2]=0;
+								map[po+3]=255;
+							}
+						}
+					}
+				};
+				
+				this.save();
+				this.globalCompositionMode="copy";
+				var src=this.getImageData(0,0,w,h);
+				markDisplacement(src.data);
+				
+				this.clearRect(0,0,w,h);
+				this.putImageData(src,0,0);
+				this.restore();
+			};
+
+
+  //]]>
+
+    </script>
+
+
+<style>
+    #filteredImg {
+        display:block;
+        position:absolute;
+        left:0px; top:228px; width:1024px; height:768px;
+        filter:url(#perspDisp);
+    }
+</style>
+</head>
+
+<body>
+
+
+<svg:svg height="0">
+<svg:filter color-interpolation-filters="sRGB" id="perspDisp"
+	    filterUnits="userSpaceOnUse" x="0%" y="0%" width="768" height="384" filterRes="768 384">
+	<svg:feImage x="128" y="128" width="512" height="256" 
+		xlink:href="fdisplacement512.png" result ="displacement"/>
+<svg:feOffset x="0" y="0" width="512" height="256"  dx="-128" dy="-128" />
+
+</svg:filter>
+</svg:svg>
+
+<img id="filteredImg"/>
+
+
+</body>
+</html>
+
